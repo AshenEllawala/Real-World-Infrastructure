@@ -27,7 +27,7 @@ async def startup():
 
 @app.get("/")
 async def root():
-    return {"message": "Production Application", "version": "1.0.0", "status": "running"}
+    return {"message": "Production Application", "version": "1.0.1", "status": "running"}
 
 @app.get("/health")
 async def health():
