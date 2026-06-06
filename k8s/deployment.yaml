@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: myappregistry73144.azurecr.io/myapp:latest  # ← UPDATE THIS after terraform apply
+        image: myappregistry73144.azurecr.io/myapp:d544188a6fa02dfce2ee20116d9771050ad73afe
         imagePullPolicy: Always
         ports:
         - name: http
