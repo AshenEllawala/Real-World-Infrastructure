@@ -1,0 +1,78 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: myappregistry73144.azurecr.io  # ← UPDATE THIS after terraform apply
+  IMAGE_NAME: myapp
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Get ACR Admin Credentials
+        id: acr-credentials
+        run: |
+          ACR_NAME=$(echo ${{ env.REGISTRY }} | cut -d'.' -f1)
+          ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
+          ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" -o tsv)
+          echo "::add-mask::$ACR_PASSWORD"
+          echo "acr_username=$ACR_USERNAME" >> $GITHUB_OUTPUT
+          echo "acr_password=$ACR_PASSWORD" >> $GITHUB_OUTPUT
+
+      - name: Docker Login
+        run: docker login -u "${{ steps.acr-credentials.outputs.acr_username }}" -p "${{ steps.acr-credentials.outputs.acr_password }}" "${{ env.REGISTRY }}"
+
+      - name: Push to ACR
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Update deployment.yaml with new image tag
+        run: |
+          sed -i "s|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" k8s/deployment.yaml
+
+      - name: Commit and push updated deployment.yaml
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add k8s/deployment.yaml
+          git commit -m "Auto-update image tag to ${{ github.sha }}" || echo "No changes to commit"
+          git push origin main
