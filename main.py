@@ -21,7 +21,7 @@ app = FastAPI(title="Production App", version="1.0.0")
 async def startup():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created successfully")
+        print("✅ Database tables created successfully1")
     except Exception as e:
         print(f"⚠️ Database not ready yet: {e}")
 
