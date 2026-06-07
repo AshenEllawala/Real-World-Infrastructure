@@ -28,7 +28,7 @@ spec:
     spec:
       containers:
       - name: myapp
-        image: myappregistry73144.azurecr.io/myapp:d544188a6fa02dfce2ee20116d9771050ad73afe
+        image: myappregistry73144.azurecr.io/myapp:24da0ec4dd0578277bdccf5b608a0e1df7d36f5c
         imagePullPolicy: Always
         ports:
         - name: http
