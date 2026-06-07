@@ -1,13 +1,35 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 import os
+
+
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://appuser:apppass@db:5432/postgres")
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# ============================================================================
+# Prometheus Metrics
+# ============================================================================
+REQUEST_COUNT = Counter(
+    'requests_total',
+    'Total number of requests',
+    ['method', 'endpoint']
+)
+
+FAILED_REQUEST_COUNT = Counter(
+    'requests_failed_total',
+    'Total number of failed requests'
+)
+
+DB_LATENCY = Gauge(
+    'database_latency_ms',
+    'Database latency in milliseconds'
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -39,7 +61,13 @@ async def ready():
 
 @app.get("/metrics")
 async def metrics():
-    return {"requests_total": 100, "requests_failed": 2, "database_latency_ms": 15}
+    # Set some example values
+    DB_LATENCY.set(15)
+    # Return Prometheus format (text/plain)
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
 
 if __name__ == "__main__":
     import uvicorn
