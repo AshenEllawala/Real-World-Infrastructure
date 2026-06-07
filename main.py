@@ -5,8 +5,6 @@ from sqlalchemy.orm import sessionmaker
 from prometheus_client import Counter, Gauge, generate_latest, CONTENT_TYPE_LATEST
 import os
 
-
-
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://appuser:apppass@db:5432/postgres")
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -43,27 +41,28 @@ app = FastAPI(title="Production App", version="1.0.0")
 async def startup():
     try:
         Base.metadata.create_all(bind=engine)
-        print("✅ Database tables created successfully1")
+        print("✅ Database tables created successfully")
     except Exception as e:
         print(f"⚠️ Database not ready yet: {e}")
 
 @app.get("/")
 async def root():
+    REQUEST_COUNT.labels(method="GET", endpoint="/").inc()
     return {"message": "Production Application", "version": "1.0.1", "status": "running"}
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "version": "1.0.0"}
+    REQUEST_COUNT.labels(method="GET", endpoint="/health").inc()
+    return {"status": "healthy", "version": "1.0.1"}
 
 @app.get("/ready")
 async def ready():
+    REQUEST_COUNT.labels(method="GET", endpoint="/ready").inc()
     return {"status": "ready"}
 
 @app.get("/metrics")
 async def metrics():
-    # Set some example values
     DB_LATENCY.set(15)
-    # Return Prometheus format (text/plain)
     return Response(
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST
